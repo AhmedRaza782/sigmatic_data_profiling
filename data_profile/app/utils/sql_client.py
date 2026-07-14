@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from .databricks_client import WarehouseOption
@@ -24,7 +25,11 @@ def create_sql_connection(warehouse_name: str, warehouses: list[WarehouseOption]
 
     from databricks.sdk import WorkspaceClient
 
-    workspace = WorkspaceClient(profile="data_profile")
+    workspace = WorkspaceClient(
+        host=os.environ["DATABRICKS_HOST"],
+        client_id=os.environ["DATABRICKS_CLIENT_ID"],
+        client_secret=os.environ["DATABRICKS_CLIENT_SECRET"],
+    )
     return sql.connect(
         server_hostname=workspace.config.host.replace("https://", ""),
         http_path=selected_warehouse.http_path,

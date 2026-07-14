@@ -28,6 +28,9 @@ Desktop.ini
 # Python cache
 .pytest_cache/
 .mypy_cache/
+
+# Streamlit secrets (contains sensitive credentials)
+.streamlit/secrets.toml
 .coverage
 htmlcov/
 .cache/

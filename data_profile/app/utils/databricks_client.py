@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 
 from databricks.sdk import WorkspaceClient
@@ -17,8 +18,12 @@ class WarehouseOption:
 class DatabricksMetadataClient:
     """Thin wrapper around Databricks SDK for metadata discovery."""
 
-    def __init__(self, profile: str = "data_profile") -> None:
-        self._workspace = WorkspaceClient(profile=profile)
+    def __init__(self) -> None:
+        self._workspace = WorkspaceClient(
+            host=os.environ["DATABRICKS_HOST"],
+            client_id=os.environ["DATABRICKS_CLIENT_ID"],
+            client_secret=os.environ["DATABRICKS_CLIENT_SECRET"],
+        )
 
     def list_warehouses(self) -> list[WarehouseOption]:
         warehouses: list[WarehouseOption] = []
