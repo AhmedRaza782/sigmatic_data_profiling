@@ -1,0 +1,5 @@
+resources:
+  apps:
+    sigmatic_data_profiling:
+      name: sigmatic-data-profiling
+      source_code_path: .
