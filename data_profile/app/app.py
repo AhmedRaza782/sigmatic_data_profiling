@@ -20,8 +20,11 @@ from utils.sql_client import create_sql_connection
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-st.set_page_config(page_title="Sigmatic Data Profiling", page_icon="📊", layout="wide")
-
+st.set_page_config(
+    page_title="Sigmatic Data Profiling",
+    page_icon="📈",
+    layout="wide",
+)
 
 @st.cache_resource(show_spinner=False)
 def get_client() -> DatabricksMetadataClient:
@@ -107,8 +110,34 @@ def render_dashboard(profile_result: dict[str, Any]) -> None:
 
 
 def main() -> None:
-    st.title("📊 Sigmatic Data Profiling & Quality")
-    st.caption("Enterprise-grade profiling powered by Databricks SQL Warehouse")
+
+    logo_path = Path(__file__).parent / "Logo Sigmatic-r0d1-01.png"
+
+    col1, col2 = st.columns([1, 5])
+
+    with col1:
+        st.image(str(logo_path), width=180)
+
+    with col2:
+        st.markdown(
+            """
+            <h1 style="margin-bottom:0px;">
+                Sigmatic Data Profiling & Quality
+            </h1>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            """
+            <span style="font-size:18px;color:#8c8c8c;">
+            Enterprise-grade profiling powered by Databricks SQL Warehouse
+            </span>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    st.markdown("---")
 
     with st.sidebar:
         st.header("Configuration")
