@@ -13,6 +13,7 @@ SRC_DIR = ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
+from utils.report_generator import create_word_report
 from profiler import DataProfiler
 from utils.databricks_client import DatabricksMetadataClient, WarehouseOption
 from utils.sql_client import create_sql_connection
@@ -204,6 +205,23 @@ def main() -> None:
                         st.error(f"Profiling failed: {exc}")
 
     if "profile_result" in st.session_state:
+
+        st.markdown("---")
+
+        left, right = st.columns([6, 2])
+
+        with left:
+            st.subheader("📊 Data Quality Assessment")
+
+        with right:
+            st.download_button(
+                label="📄 Download Profiling Report",
+                data=create_word_report(st.session_state["profile_result"]),
+                file_name="Sigmatic_Data_Profiling_Report.docx",
+                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                use_container_width=True,
+            )
+
         render_dashboard(st.session_state["profile_result"])
 
 

@@ -18,46 +18,103 @@ class WarehouseOption:
 class DatabricksMetadataClient:
     """Thin wrapper around Databricks SDK for metadata discovery."""
 
-    def __init__(self) -> None:
-        self._workspace = WorkspaceClient(
-            host=os.environ["DATABRICKS_HOST"],
-            client_id=os.environ["DATABRICKS_CLIENT_ID"],
-            client_secret=os.environ["DATABRICKS_CLIENT_SECRET"],
-        )
+    def __init__(self, profile: str = "data_profile") -> None:
+
+        host = os.getenv("DATABRICKS_HOST")
+        client_id = os.getenv("DATABRICKS_CLIENT_ID")
+        client_secret = os.getenv("DATABRICKS_CLIENT_SECRET")
+
+        # =====================================================
+        # Streamlit Cloud
+        # =====================================================
+        if host and client_id and client_secret:
+
+            logger.info("Using Databricks OAuth credentials from environment variables.")
+
+            self._workspace = WorkspaceClient(
+                host=host,
+                client_id=client_id,
+                client_secret=client_secret,
+            )
+
+        # =====================================================
+        # Local Development
+        # =====================================================
+        else:
+
+            logger.info("Using local Databricks CLI profile: %s", profile)
+
+            self._workspace = WorkspaceClient(
+                profile=profile
+            )
 
     def list_warehouses(self) -> list[WarehouseOption]:
         warehouses: list[WarehouseOption] = []
+
         for warehouse in self._workspace.warehouses.list():
             if getattr(warehouse, "enable_serverless_compute", False):
                 path = getattr(getattr(warehouse, "odbc_params", None), "path", None)
+
                 if path:
-                    warehouses.append(WarehouseOption(name=warehouse.name, http_path=path))
+                    warehouses.append(
+                        WarehouseOption(
+                            name=warehouse.name,
+                            http_path=path,
+                        )
+                    )
+
         return warehouses
 
     def list_catalogs(self) -> list[str]:
         try:
-            return [getattr(catalog, "name", "") for catalog in self._workspace.catalogs.list() if getattr(catalog, "name", "")]
-        except Exception as exc:  # pragma: no cover - runtime guard
+            return [
+                getattr(catalog, "name", "")
+                for catalog in self._workspace.catalogs.list()
+                if getattr(catalog, "name", "")
+            ]
+        except Exception as exc:
             logger.exception("Unable to list catalogs: %s", exc)
             return []
 
     def list_schemas(self, catalog: str) -> list[str]:
-        if not catalog or catalog in {"No catalogs available", ""}:
+        if not catalog or catalog in {"", "No catalogs available"}:
             return []
+
         try:
             rows = self._workspace.schemas.list(catalog_name=catalog)
-            return [getattr(row, "name", None) for row in rows if getattr(row, "name", None)]
-        except Exception as exc:  # pragma: no cover - runtime guard
+
+            return [
+                getattr(row, "name", None)
+                for row in rows
+                if getattr(row, "name", None)
+            ]
+
+        except Exception as exc:
             logger.exception("Unable to list schemas: %s", exc)
             return []
 
     def list_tables(self, catalog: str, schema: str) -> list[str]:
-        if not catalog or not schema or catalog in {"No catalogs available", ""} or schema in {"No schemas available", ""}:
+        if (
+            not catalog
+            or not schema
+            or catalog in {"", "No catalogs available"}
+            or schema in {"", "No schemas available"}
+        ):
             return []
+
         try:
-            rows = self._workspace.tables.list(catalog_name=catalog, schema_name=schema)
-            return [getattr(row, "name", None) for row in rows if getattr(row, "name", None)]
-        except Exception as exc:  # pragma: no cover - runtime guard
+            rows = self._workspace.tables.list(
+                catalog_name=catalog,
+                schema_name=schema,
+            )
+
+            return [
+                getattr(row, "name", None)
+                for row in rows
+                if getattr(row, "name", None)
+            ]
+
+        except Exception as exc:
             logger.exception("Unable to list tables: %s", exc)
             return []
 

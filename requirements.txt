@@ -10,6 +10,8 @@ databricks-sdk>=0.58.0
 databricks-connect>=16.4.0
 databricks-sql-connector>=4.0.0
 
+python-docx>=1.1.2
+
 # Visualisation
 plotly>=6.0.0
 
