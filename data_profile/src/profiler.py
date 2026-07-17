@@ -7,9 +7,18 @@ from cardinality import build_unique_count_query
 from datatypes import detect_data_type_issues
 from duplicates import build_duplicate_count_query
 from nulls import build_null_percentage_query
-from quality import build_quality_warnings, calculate_quality_score
+from quality import (
+    build_quality_score_components,
+    build_quality_warnings,
+    calculate_quality_score,
+)
 from recommendations import build_recommendations
-from schema import build_schema_query, normalize_schema_rows, qualify_table_name
+from schema import (
+    build_schema_query,
+    normalize_schema_rows,
+    qualify_table_name,
+    quote_identifier,
+)
 from statistics import build_numeric_statistics_query, normalize_numeric_statistics
 
 logger = logging.getLogger(__name__)
@@ -64,6 +73,18 @@ class DataProfiler:
         query, parameters = build_schema_query(self.catalog, self.schema, self.table)
         rows = self._execute_query(query, parameters)
         return normalize_schema_rows(list(rows))
+
+    def _get_sample_rows(self, column_names: list[str]) -> list[dict[str, Any]]:
+        if not column_names:
+            return []
+
+        quoted_columns = ", ".join(quote_identifier(column_name) for column_name in column_names)
+        query = f"SELECT {quoted_columns} FROM {self.table_name} LIMIT 5"
+        rows = self._execute_query(query)
+        sample_rows: list[dict[str, Any]] = []
+        for row in rows:
+            sample_rows.append({column_names[index]: row[index] for index in range(len(column_names))})
+        return sample_rows
 
     def profile(self) -> dict[str, Any]:
         row_count = self.get_row_count()
@@ -135,14 +156,37 @@ class DataProfiler:
             column_name for column_name, unique_count in unique_counts.items() if unique_count == row_count and row_count > 0
         ]
         data_type_issues = detect_data_type_issues(schema_rows)
-        quality_score = calculate_quality_score(row_count, duplicate_count, null_percentages)
-        quality_warnings = build_quality_warnings(schema_rows, null_percentages)
-        recommendations = build_recommendations(schema_rows, null_percentages, quality_score)
+        quality_score_components = build_quality_score_components(
+            row_count,
+            duplicate_count,
+            null_percentages,
+            data_type_issues,
+            candidate_primary_keys,
+        )
+        quality_score = quality_score_components["overall_score"]
+        quality_warnings = build_quality_warnings(
+            schema_rows,
+            null_percentages,
+            duplicate_count,
+            candidate_primary_keys,
+            row_count,
+        )
+        sample_rows = self._get_sample_rows(column_names)
+
+        recommendations = build_recommendations(
+            schema_rows,
+            null_percentages,
+            quality_score,
+            candidate_primary_keys,
+            duplicate_count,
+            data_type_issues,
+        )
 
         return {
             "row_count": row_count,
             "column_count": len(column_names),
             "schema": schema_rows,
+            "sample_rows": sample_rows,
             "null_percentages": null_percentages,
             "duplicate_count": duplicate_count,
             "unique_counts": unique_counts,
@@ -150,8 +194,13 @@ class DataProfiler:
             "candidate_primary_keys": candidate_primary_keys,
             "data_type_issues": data_type_issues,
             "quality_score": quality_score,
+            "quality_score_components": quality_score_components,
             "quality_warnings": quality_warnings,
             "recommendations": recommendations,
+            "catalog": self.catalog,
+            "schema_name": self.schema,
+            "table_name": self.table,
+            "qualified_table_name": self.table_name,
         }
 
     def get_row_count(self) -> int:

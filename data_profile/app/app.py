@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import sys
+import os
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -66,16 +68,16 @@ def render_dashboard(profile_result: dict[str, Any]) -> None:
         schema_df = pd.DataFrame(profile_result["schema"])
         st.dataframe(schema_df, use_container_width=True, hide_index=True)
 
-    tab_schema, tab_nulls, tab_cardinality, tab_quality, tab_recommendations = st.tabs(
-        ["Column Statistics", "Null Percentages", "Cardinality", "Quality Warnings", "Recommendations"]
+    tab_sample, tab_nulls, tab_cardinality, tab_stats, tab_quality, tab_recommendations = st.tabs(
+        ["Sample Rows", "Null Percentages", "Cardinality", "Numeric Statistics", "Quality Warnings", "Recommendations"]
     )
 
-    with tab_schema:
-        stats_df = pd.DataFrame(profile_result["numeric_statistics"])
-        if not stats_df.empty:
-            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+    with tab_sample:
+        sample_df = pd.DataFrame(profile_result.get("sample_rows", []))
+        if not sample_df.empty:
+            st.dataframe(sample_df, use_container_width=True, hide_index=True)
         else:
-            st.info("No numeric statistics available for the selected table.")
+            st.info("No sample rows available for the selected table.")
 
     with tab_nulls:
         null_df = pd.DataFrame(
@@ -92,6 +94,13 @@ def render_dashboard(profile_result: dict[str, Any]) -> None:
             st.success(f"Candidate primary keys: {', '.join(profile_result['candidate_primary_keys'])}")
         else:
             st.warning("No candidate primary keys were identified.")
+
+    with tab_stats:
+        stats_df = pd.DataFrame(profile_result["numeric_statistics"])
+        if not stats_df.empty:
+            st.dataframe(stats_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("No numeric statistics available for the selected table.")
 
     with tab_quality:
         if profile_result["data_type_issues"]:
@@ -198,6 +207,9 @@ def main() -> None:
                         connection = create_sql_connection(selected_warehouse, warehouses)
                         profiler = DataProfiler(connection, selected_catalog, selected_schema, selected_table)
                         result = profiler.profile()
+                        result["warehouse"] = selected_warehouse
+                        result["generated_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+                        result["workspace_host"] = os.getenv("DATABRICKS_HOST", "local")
                         st.session_state["profile_result"] = result
                         st.success("Profiling completed successfully")
                     except Exception as exc:  # pragma: no cover - runtime guard
